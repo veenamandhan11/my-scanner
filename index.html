@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Video Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .upload-box {
+            border: 3px dashed rgba(255,255,255,0.3);
+            border-radius: 15px;
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-box:hover {
+            border-color: rgba(255,255,255,0.6);
+            background: rgba(255,255,255,0.05);
+            transform: translateY(-2px);
+        }
+
+        .upload-box.dragover {
+            border-color: #4CAF50;
+            background: rgba(76,175,80,0.1);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.7;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .preview {
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            max-width: 100%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .preview img, .preview video {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .scanner-section {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #camera-feed {
+            width: 100%;
+            height: 600px;
+            object-fit: cover;
+        }
+
+        #overlay-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #overlay-video.visible {
+            opacity: 0.9;
+        }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            border: 3px solid rgba(255,255,255,0.5);
+            border-radius: 20px;
+            pointer-events: none;
+        }
+
+        .scanner-overlay::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border: 2px solid rgba(76,175,80,0.8);
+            border-radius: 25px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        .start-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(76,175,80,0.3);
+            margin: 20px auto;
+            display: block;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(76,175,80,0.4);
+        }
+
+        .start-btn:disabled {
+            background: rgba(255,255,255,0.2);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 1.1rem;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .status.scanning {
+            background: rgba(255,193,7,0.2);
+            color: #FFC107;
+        }
+
+        .status.found {
+            background: rgba(76,175,80,0.2);
+            color: #4CAF50;
+        }
+
+        @media (max-width: 768px) {
+            .upload-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            #camera-feed {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 AR Video Scanner</h1>
+            <p>Upload an image marker and video, then scan to see the magic!</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-grid">
+                <div class="upload-box" onclick="document.getElementById('image-input').click()">
+                    <div class="upload-icon">🖼️</div>
+                    <div class="upload-text">Upload Marker Image</div>
+                    <div class="upload-subtext">Click or drag an image file</div>
+                    <input type="file" id="image-input" class="file-input" accept="image/*">
+                    <div id="image-preview" class="preview" style="display: none;"></div>
+                </div>
+
+                <div class="upload-box" onclick="document.getElementById('video-input').click()">
+                    <div class="upload-icon">🎬</div>
+                    <div class="upload-text">Upload Video</div>
+                    <div class="upload-subtext">Click or drag a video file</div>
+                    <input type="file" id="video-input" class="file-input" accept="video/*">
+                    <div id="video-preview" class="preview" style="display: none;"></div>
+                </div>
+            </div>
+
+            <button id="start-scanner" class="start-btn" disabled>Start Scanner</button>
+        </div>
+
+        <div class="scanner-section" id="scanner-section" style="display: none;">
+            <div class="status" id="status">Position the marker image in the viewfinder...</div>
+            
+            <div class="scanner-container">
+                <video id="camera-feed" autoplay muted playsinline></video>
+                <video id="overlay-video" muted loop></video>
+                <div class="scanner-overlay"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let markerImage = null;
+        let overlayVideo = null;
+        let stream = null;
+        let isScanning = false;
+        let detectionCanvas = null;
+        let detectionContext = null;
+
+        // File upload handlers
+        const imageInput = document.getElementById('image-input');
+        const videoInput = document.getElementById('video-input');
+        const startBtn = document.getElementById('start-scanner');
+        const scannerSection = document.getElementById('scanner-section');
+        const cameraFeed = document.getElementById('camera-feed');
+        const overlayVideoEl = document.getElementById('overlay-video');
+        const status = document.getElementById('status');
+
+        imageInput.addEventListener('change', handleImageUpload);
+        videoInput.addEventListener('change', handleVideoUpload);
+        startBtn.addEventListener('click', startScanner);
+
+        // Drag and drop handlers
+        setupDragAndDrop();
+
+        function setupDragAndDrop() {
+            const uploadBoxes = document.querySelectorAll('.upload-box');
+            
+            uploadBoxes.forEach(box => {
+                box.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    box.classList.add('dragover');
+                });
+
+                box.addEventListener('dragleave', () => {
+                    box.classList.remove('dragover');
+                });
+
+                box.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    box.classList.remove('dragover');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        const file = files[0];
+                        if (box.querySelector('#image-input') && file.type.startsWith('image/')) {
+                            handleImageFile(file);
+                        } else if (box.querySelector('#video-input') && file.type.startsWith('video/')) {
+                            handleVideoFile(file);
+                        }
+                    }
+                });
+            });
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (file) handleImageFile(file);
+        }
+
+        function handleVideoUpload(e) {
+            const file = e.target.files[0];
+            if (file) handleVideoFile(file);
+        }
+
+        function handleImageFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                markerImage = new Image();
+                markerImage.onload = () => {
+                    const preview = document.getElementById('image-preview');
+                    preview.innerHTML = `<img src="${e.target.result}" alt="Marker Image">`;
+                    preview.style.display = 'block';
+                    checkReadyToScan();
+                };
+                markerImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleVideoFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                overlayVideoEl.src = e.target.result;
+                overlayVideo = overlayVideoEl;
+                
+                const preview = document.getElementById('video-preview');
+                preview.innerHTML = `<video src="${e.target.result}" controls></video>`;
+                preview.style.display = 'block';
+                checkReadyToScan();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function checkReadyToScan() {
+            if (markerImage && overlayVideo) {
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Scanner';
+            }
+        }
+
+        async function startScanner() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                
+                cameraFeed.srcObject = stream;
+                scannerSection.style.display = 'block';
+                scannerSection.scrollIntoView({ behavior: 'smooth' });
+                
+                // Create detection canvas
+                detectionCanvas = document.createElement('canvas');
+                detectionContext = detectionCanvas.getContext('2d');
+                
+                isScanning = true;
+                startBtn.textContent = 'Scanner Active';
+                startBtn.disabled = true;
+                
+                // Start detection loop
+                detectMarker();
+                
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                updateStatus('Camera access denied or not available', 'error');
+            }
+        }
+
+        function detectMarker() {
+            if (!isScanning || !stream) return;
+
+            // Set canvas size to match video
+            const rect = cameraFeed.getBoundingClientRect();
+            detectionCanvas.width = cameraFeed.videoWidth || 640;
+            detectionCanvas.height = cameraFeed.videoHeight || 480;
+
+            // Draw current video frame to canvas for processing
+            detectionContext.drawImage(cameraFeed, 0, 0, detectionCanvas.width, detectionCanvas.height);
+
+            // Simple detection simulation (in a real app, you'd use computer vision libraries)
+            const isDetected = simulateDetection();
+
+            if (isDetected) {
+                showOverlayVideo();
+                updateStatus('Marker detected! Playing video...', 'found');
+            } else {
+                hideOverlayVideo();
+                updateStatus('Scanning for marker...', 'scanning');
+            }
+
+            // Continue detection loop
+            requestAnimationFrame(detectMarker);
+        }
+
+        function simulateDetection() {
+            // This is a simplified simulation
+            // In a real implementation, you would use:
+            // - OpenCV.js for feature detection
+            // - TensorFlow.js for machine learning detection
+            // - AR.js for marker-based AR
+            
+            // For demo purposes, we'll randomly detect the marker
+            return Math.random() < 0.1; // 10% chance per frame
+        }
+
+        function showOverlayVideo() {
+            overlayVideoEl.classList.add('visible');
+            if (overlayVideoEl.paused) {
+                overlayVideoEl.play().catch(e => console.log('Video play failed:', e));
+            }
+        }
+
+        function hideOverlayVideo() {
+            overlayVideoEl.classList.remove('visible');
+            overlayVideoEl.pause();
+            overlayVideoEl.currentTime = 0;
+        }
+
+        function updateStatus(message, type = '') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        // Enhanced detection simulation with user interaction
+        let detectionProgress = 0;
+        let lastDetectionTime = 0;
+
+        function simulateDetection() {
+            const currentTime = Date.now();
+            
+            // Simulate detection when user holds camera steady
+            if (currentTime - lastDetectionTime > 3000) { // Every 3 seconds
+                detectionProgress++;
+                lastDetectionTime = currentTime;
+                
+                if (detectionProgress >= 3) { // After 3 cycles, "detect" the marker
+                    detectionProgress = 0;
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+    </script>
+</body>
+</html>
