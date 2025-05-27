@@ -144,11 +144,12 @@
             height: 100%;
             object-fit: cover;
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.5s ease;
+            z-index: 10;
         }
 
         #overlay-video.visible {
-            opacity: 0.9;
+            opacity: 0.95;
         }
 
         .scanner-overlay {
@@ -431,7 +432,7 @@
                 updateStatus('Marker detected! Playing video...', 'found');
             } else {
                 hideOverlayVideo();
-                updateStatus('Scanning for marker...', 'scanning');
+                updateStatus('Scanning for Marker...', 'scanning');
             }
 
             // Continue detection loop
@@ -458,8 +459,13 @@
 
         function hideOverlayVideo() {
             overlayVideoEl.classList.remove('visible');
-            overlayVideoEl.pause();
-            overlayVideoEl.currentTime = 0;
+            // Don't pause immediately, let it fade out
+            setTimeout(() => {
+                if (!overlayVideoEl.classList.contains('visible')) {
+                    overlayVideoEl.pause();
+                    overlayVideoEl.currentTime = 0;
+                }
+            }, 300); // Wait for fade transition
         }
 
         function updateStatus(message, type = '') {
@@ -474,25 +480,47 @@
             }
         });
 
-        // Enhanced detection simulation with user interaction
+        // Enhanced detection simulation with stable tracking
         let detectionProgress = 0;
         let lastDetectionTime = 0;
+        let isCurrentlyDetected = false;
+        let detectionStartTime = 0;
+        let detectionStableTime = 0;
 
         function simulateDetection() {
             const currentTime = Date.now();
             
-            // Simulate detection when user holds camera steady
-            if (currentTime - lastDetectionTime > 3000) { // Every 3 seconds
-                detectionProgress++;
-                lastDetectionTime = currentTime;
+            if (!isCurrentlyDetected) {
+                // Not currently detecting - check if we should start detecting
+                if (currentTime - lastDetectionTime > 4000) { // Every 4 seconds, chance to detect
+                    if (Math.random() < 0.3) { // 30% chance to start detection
+                        isCurrentlyDetected = true;
+                        detectionStartTime = currentTime;
+                        detectionStableTime = 5000 + Math.random() * 10000; // Stay detected for 5-15 seconds
+                        updateStatus('Marker detected! Stabilizing...', 'found');
+                        return true;
+                    }
+                    lastDetectionTime = currentTime;
+                }
+                return false;
+            } else {
+                // Currently detecting - check if we should continue
+                const detectionDuration = currentTime - detectionStartTime;
                 
-                if (detectionProgress >= 3) { // After 3 cycles, "detect" the marker
-                    detectionProgress = 0;
+                if (detectionDuration < detectionStableTime) {
+                    // Still in stable detection period
+                    if (detectionDuration > 1000) { // After 1 second, show stable message
+                        updateStatus('Marker locked! Video playing...', 'found');
+                    }
                     return true;
+                } else {
+                    // End detection period
+                    isCurrentlyDetected = false;
+                    lastDetectionTime = currentTime;
+                    updateStatus('Marker lost. Searching...', 'scanning');
+                    return false;
                 }
             }
-            
-            return false;
         }
     </script>
 </body>
